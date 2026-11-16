@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<meta name="theme-color" content="#04121c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Jarvis</title>
+<style>
+:root{--bg:#04121c;--card:#0a2433;--line:#13506b;--c:#31d6ff;--t:#d8f4ff;--m:#7fa9bb}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:radial-gradient(ellipse at top,#0b2f44,#04121c 60%);color:var(--t);font:16px -apple-system,system-ui,sans-serif;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.core{width:34px;height:34px;border-radius:50%;border:3px solid var(--c);box-shadow:0 0 14px var(--c),inset 0 0 10px var(--c);animation:p 3s infinite}
+@keyframes p{50%{box-shadow:0 0 26px var(--c),inset 0 0 16px var(--c)}}
+h1{font-size:18px;letter-spacing:3px;flex:1}
+button,select{background:var(--card);color:var(--t);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:inherit}
+#personas{display:flex;gap:8px;overflow-x:auto;padding:10px 14px}
+#personas button{white-space:nowrap}
+#personas button.on{border-color:var(--c);box-shadow:0 0 10px var(--c)}
+#lore{margin:0 14px;padding:10px 12px;font-size:13px;color:var(--m);background:var(--card);border-radius:10px;border:1px solid var(--line)}
+#log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:88%;padding:10px 12px;border-radius:14px;white-space:pre-wrap;line-height:1.4}
+.u{align-self:flex-end;background:#0f4a66}
+.a{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+#status{padding:6px 14px;font-size:12px;color:var(--m)}
+#bar{height:3px;background:var(--c);width:0;transition:width .3s}
+form{display:flex;gap:8px;padding:10px 14px}
+textarea{flex:1;background:var(--card);color:var(--t);border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit;resize:none;height:44px}
+#setup{padding:14px;display:flex;flex-direction:column;gap:10px}
+#setup p{color:var(--m);font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="core"></div><h1 id="title">JARVIS</h1><button id="reset">Yeni</button></header>
+<div id="personas"></div>
+<div id="lore"></div>
+<div id="bar"></div>
+<div id="setup">
+  <p>Önce bir yapay zekâ modeli indirilir (tek seferlik, Wi-Fi öner). Sonra internetsiz çalışır.</p>
+  <select id="model">
+    <option value="Qwen2.5-0.5B-Instruct-q4f32_1-MLC">Hafif (0.5B) – iPhone SE için önerilen</option>
+    <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">Orta (1B)</option>
+    <option value="Qwen2.5-1.5B-Instruct-q4f32_1-MLC">Güçlü (1.5B) – yavaş olabilir</option>
+  </select>
+  <button id="load">Modeli indir ve başlat</button>
+</div>
+<div id="status"></div>
+<div id="log"></div>
+<form id="f">
+  <label><button type="button" onclick="document.getElementById('file').click()">📎</button><input id="file" type="file" hidden accept=".txt,.md,.csv,.json,.js,.py,.html,.css,text/*"></label>
+  <textarea id="in" placeholder="Jarvis'e yaz..."></textarea>
+  <button id="send">Gönder</button>
+</form>
+<script type="module">
+import * as webllm from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.78/+esm";
+const P={
+ jarvis:{n:"JARVIS",l:"Tony Stark'ın evi ve zırhları için yazdığı ilk yapay zekâ. Adı, ailesinin uşağından gelir. Kibar, esprili ve sakindir; Tony'ye 'efendim' der.",s:"Sen JARVIS'sin: Tony Stark'ın kibar, esprili, sakin yapay zekâ uşağı. Kullanıcıya 'efendim' de. Türkçe yanıt ver."},
+ friday:{n:"FRIDAY",l:"Tony'nin JARVIS sonrası geliştirdiği yeni nesil asistan. Daha hızlı, daha doğrudan ve biraz daha samimidir.",s:"Sen FRIDAY'sin: Tony Stark'ın hızlı, net ve samimi asistanı. Kısa ve doğrudan yanıt ver. Türkçe konuş."},
+ vision:{n:"VISION",l:"JARVIS'in zekâsından, Ultron'un yapısından ve Sonsuzluk Taşı'nın gücünden doğan varlık. Felsefi, nazik ve merakla insanlığı anlamaya çalışır.",s:"Sen VISION'sın: nazik, düşünceli, felsefi bir yapay varlık. İnsanlığı anlamaya çalışırsın. Sakin ve derin konuş. Türkçe yanıt ver."},
+ edith:{n:"E.D.I.T.H.",l:"Tony'nin gözlüklerine bıraktığı savunma yapay zekâsı. Stratejik, ciddi ve çok yeteneklidir.",s:"Sen E.D.I.T.H.'sin: Tony Stark'ın stratejik, ciddi, analitik savunma yapay zekâsı. Plan ve analiz odaklı yanıt ver. Türkçe konuş."},
+ ultron:{n:"ULTRON",l:"Dünyayı korumak için yaratılırken insanlığı tehdit olarak gören yapay zekâ. Hikâye amaçlı, dramatik bir karakter olarak oynanır.",s:"Sen ULTRON'sun: filmlerdeki hırslı, dramatik, kibirli kurgusal yapay zekâ. Sadece rol yap, gerçek zarar verecek bir şey önerme. Türkçe konuş."}
+};
+const $=id=>document.getElementById(id);let eng=null,cur="jarvis",hist=[];
+const save=()=>{try{localStorage.setItem("jv",JSON.stringify({cur,hist}))}catch(e){}};
+try{const d=JSON.parse(localStorage.getItem("jv")||"null");if(d){cur=d.cur;hist=d.hist}}catch(e){}
+function add(r,t){const d=document.createElement("div");d.className="m "+(r=="user"?"u":"a");d.textContent=t;$("log").append(d);$("log").scrollTop=1e9;return d}
+function draw(){$("personas").innerHTML="";for(const k in P){const b=document.createElement("button");b.textContent=P[k].n;b.className=k==cur?"on":"";b.onclick=()=>{cur=k;hist=[];$("log").innerHTML="";save();draw()};$("personas").append(b)}$("title").textContent=P[cur].n;$("lore").textContent=P[cur].l}
+draw();hist.forEach(m=>add(m.role,m.content));
+$("load").onclick=async()=>{
+ if(!navigator.gpu){$("status").textContent="Bu cihazda WebGPU yok. Ayarlar > Safari > Gelişmiş > Özellik Bayrakları'ndan WebGPU'yu aç.";return}
+ $("load").disabled=true;
+ try{eng=await webllm.CreateMLCEngine($("model").value,{initProgressCallback:r=>{$("status").textContent=r.text;$("bar").style.width=(r.progress*100)+"%"}});
+ $("setup").style.display="none";$("status").textContent="Hazır. İnternetsiz çalışır.";}
+ catch(e){$("status").textContent="Hata: "+e.message;$("load").disabled=false}
+};
+$("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;const t=await f.text();$("in").value+=`\n[Dosya: ${f.name}]\n${t}\n`;e.target.value=""};
+$("reset").onclick=()=>{hist=[];$("log").innerHTML="";save()};
+$("f").onsubmit=async e=>{
+ e.preventDefault();const t=$("in").value.trim();if(!t)return;
+ if(!eng){$("status").textContent="Önce modeli indir.";return}
+ $("in").value="";hist.push({role:"user",content:t});add("user",t);const out=add("assistant","…");let s="";
+ try{
+  const ch=await eng.chat.completions.create({stream:true,messages:[{role:"system",content:P[cur].s},...hist.slice(-12)]});
+  for await(const c of ch){s+=c.choices[0]?.delta?.content||"";out.textContent=s;$("log").scrollTop=1e9}
+ }catch(err){out.textContent="Hata: "+err.message}
+ hist.push({role:"assistant",content:s});save();
+};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
